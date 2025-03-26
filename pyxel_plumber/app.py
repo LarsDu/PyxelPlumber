@@ -1,10 +1,11 @@
-import pyxel
-import random
 import math
-from typing import Callable
+import random
 from collections.abc import Hashable
 from enum import Enum
 from functools import partial
+from typing import Callable
+
+import pyxel
 
 SCREEN_WIDTH = 256
 SCREEN_HEIGHT = 240
@@ -46,23 +47,23 @@ SOLID_BRICK = (5, 0)
 SOLID_CERA = (5, 1)
 SOLID_BLOCK = (4, 7)
 SOLID_GRAY = (5, 7)
-SOLID_PIPE_UPPER_LEFT = (4,8)
-SOLID_PIPE_UPPER_RIGHT = (5,8)
-SOLID_PIPE_LOWER_LEFT = (4,9)
-SOLID_PIPE_LOWER_RIGHT = (5,9)
+SOLID_PIPE_UPPER_LEFT = (4, 8)
+SOLID_PIPE_UPPER_RIGHT = (5, 8)
+SOLID_PIPE_LOWER_LEFT = (4, 9)
+SOLID_PIPE_LOWER_RIGHT = (5, 9)
 
 MOVING_PLAT1 = (0, 10)
 MOVING_PLAT2 = (1, 10)
 FALL_PLAT1 = (0, 11)
-FIREBALL = (2,11)
-FIREBALL_IMG = (3,11)
-FIRE_CIRCLE = (0,12)
-FIRE_CIRCLE_BLOCK = (2,12)
-FIRE_CIRCLE_SPRITE = (1,12)
+FIREBALL = (2, 11)
+FIREBALL_IMG = (3, 11)
+FIRE_CIRCLE = (0, 12)
+FIRE_CIRCLE_BLOCK = (2, 12)
+FIRE_CIRCLE_SPRITE = (1, 12)
 
-BULLET_BILLY_IMG = (0,6)
-BULLET_BILLY_GUN_IMG = (2,6)
-CANNONBALL_IMG = (3,6)
+BULLET_BILLY_IMG = (0, 6)
+BULLET_BILLY_GUN_IMG = (2, 6)
+CANNONBALL_IMG = (3, 6)
 
 marker_tiles = {
     HERO,
@@ -78,7 +79,7 @@ marker_tiles = {
     FALL_PLAT1,
     FIREBALL,
     FIRE_CIRCLE,
-    #FIRE_CIRCLE_BLOCK, # Don't hide this
+    # FIRE_CIRCLE_BLOCK, # Don't hide this
 }
 solid_tiles = {
     SOLID_GRASS,
@@ -389,7 +390,6 @@ class MovableEntity(Entity):
         self.is_facing_right = True
 
 
-
 class DefaultMovableEntity(MovableEntity):
     def __init__(
         self,
@@ -404,7 +404,6 @@ class DefaultMovableEntity(MovableEntity):
         self.is_facing_right = True
         self.marker_tile = marker_tile
         self.transparent_color = transparent_color
-
 
     def draw(self) -> None:
         tx, ty = self.marker_tile
@@ -424,9 +423,6 @@ class DefaultMovableEntity(MovableEntity):
             self.h,
             self.transparent_color,
         )
-
-
-
 
 
 class Coin(Entity):
@@ -571,11 +567,14 @@ class DeathSprite(DefaultMovableEntity):
 class CollidableDeathSprite(DeathSprite):
     def on_collision(self, other: Entity) -> None:
         if isinstance(other, Player):
-            pushback_entity(self, other, on_hit_below=partial(self.on_hit_player_below, other))
+            pushback_entity(
+                self, other, on_hit_below=partial(self.on_hit_player_below, other)
+            )
 
-    def on_hit_player_below(self, player: 'Player') -> None:
+    def on_hit_player_below(self, player: "Player") -> None:
         if self.dy > 0:
             player.die()
+
 
 class State:
     def __init__(self) -> None:
@@ -625,6 +624,8 @@ class StateMachine:
         self._state_key = new_state_key
         self.state = self.state_map[self._state_key]
         self.state.on_enter()
+
+
 class PlayerStateKey(Enum):
     GROUND = 0
     AIR = 1
@@ -638,10 +639,14 @@ class PlayerGroundState(State):
         # Rather than stopping immediately, we'll slow down
         parent.dx = int(parent.dx * parent.momentum)
 
-        if pyxel.btn(pyxel.KEY_LEFT) and parent.x > 0:
+        if (
+            pyxel.btn(pyxel.KEY_LEFT) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_DPAD_LEFT)
+        ) and parent.x > 0:
             parent.dx = -parent.speed
             parent.is_facing_right = False
-        elif pyxel.btn(pyxel.KEY_RIGHT) and parent.x < SCROLL_BORDER_X:
+        elif (
+            pyxel.btn(pyxel.KEY_RIGHT) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_DPAD_RIGHT)
+        ) and parent.x < SCROLL_BORDER_X:
             parent.dx = parent.speed
             parent.is_facing_right = True
 
@@ -659,7 +664,12 @@ class PlayerGroundState(State):
         ## Apply Gravity
         parent.dy = min(parent.dy + GRAVITY, TERMINAL_VELOCITY)
 
-        if pyxel.btn(pyxel.KEY_UP) or pyxel.btn(pyxel.KEY_SPACE):
+        if (
+            pyxel.btn(pyxel.KEY_UP)
+            or pyxel.btn(pyxel.KEY_SPACE)
+            or pyxel.btn(pyxel.GAMEPAD1_BUTTON_A)
+            or pyxel.btn(pyxel.GAMEPAD1_BUTTON_DPAD_UP)
+        ):
             parent.dy = -parent.jump
             parent.state_key = PlayerStateKey.AIR
 
@@ -689,7 +699,7 @@ class PlayerGroundState(State):
 
     def draw(self) -> None:
         parent = self.parent
-        tx, ty = HERO[0]+1, HERO[1]
+        tx, ty = HERO[0] + 1, HERO[1]
         if abs(parent.dx) > 0:
             u = TILE_SIZE * (tx + 1) + TILE_SIZE * (pyxel.frame_count // 4 % 2)
         else:
@@ -759,7 +769,7 @@ class PlayerAirState(State):
 
     def draw(self) -> None:
         parent = self.parent
-        tx, ty = HERO[0]+1, HERO[1]
+        tx, ty = HERO[0] + 1, HERO[1]
         if abs(parent.dx) > 0:
             u = TILE_SIZE * (tx + 1) + TILE_SIZE * (pyxel.frame_count // 4 % 2)
         else:
@@ -1046,7 +1056,15 @@ class Turtle(ShroomHead):
 
 
 class FireBall(MovableEntity):
-    def __init__(self, x: float, y: float, w: float, h: float, speed_per_tick: float = 1, ceiling: int = 100) -> None:
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        speed_per_tick: float = 1,
+        ceiling: int = 100,
+    ) -> None:
         super().__init__(x, y, w, h)
         self.speed_per_tick = speed_per_tick
         self.dy = -speed_per_tick
@@ -1057,7 +1075,7 @@ class FireBall(MovableEntity):
         tx, ty = FIREBALL_IMG
         u = tx * TILE_SIZE
         v = ty * TILE_SIZE
-        w = self.w if (pyxel.frame_count//9)&1 else -self.w
+        w = self.w if (pyxel.frame_count // 9) & 1 else -self.w
         h = self.h if self.dy < 0 else -self.h
         pyxel.blt(self.sx, self.sy, 0, u, v, w, h, DEFAULT_TRANSPARENT_COLOR)
 
@@ -1083,8 +1101,8 @@ class SpinnyFireball(MovableEntity):
         u *= TILE_SIZE
         v *= TILE_SIZE
         fc = pyxel.frame_count
-        w = self.w if fc//9 & 1 else -self.w
-        h = self.h if fc//2 & 1 else -self.h
+        w = self.w if fc // 9 & 1 else -self.w
+        h = self.h if fc // 2 & 1 else -self.h
         pyxel.blt(self.sx, self.sy, 0, u, v, w, h, DEFAULT_TRANSPARENT_COLOR)
 
     def on_collision(self, other: "Entity") -> None:
@@ -1093,26 +1111,33 @@ class SpinnyFireball(MovableEntity):
 
 
 class FireCircle(Entity):
-    def __init__(self, x: float, y: float, w: int, h: int, rotation_speed: float = -.05, num_fireballs: int = 5) -> None:
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        w: int,
+        h: int,
+        rotation_speed: float = -0.05,
+        num_fireballs: int = 5,
+    ) -> None:
         super().__init__(x, y, w, h)
         self.rotation_speed = rotation_speed
         self.fireballs = [
-            SpinnyFireball(x+TILE_SIZE*i, y, TILE_SIZE, TILE_SIZE)
+            SpinnyFireball(x + TILE_SIZE * i, y, TILE_SIZE, TILE_SIZE)
             for i in range(num_fireballs)
         ]
         self.manager.enemies.extend(self.fireballs)
-    
+
     def update(self):
         fc: int = pyxel.frame_count
-        for i,fireball in enumerate(self.fireballs):
-            fireball.x = self.x + TILE_SIZE*i * math.cos(fc * self.rotation_speed)
-            fireball.y = self.y + TILE_SIZE*i * math.sin(fc * self.rotation_speed)
+        for i, fireball in enumerate(self.fireballs):
+            fireball.x = self.x + TILE_SIZE * i * math.cos(fc * self.rotation_speed)
+            fireball.y = self.y + TILE_SIZE * i * math.sin(fc * self.rotation_speed)
             fireball.update()
 
     def draw(self):
         for fireball in self.fireballs:
             fireball.draw()
-
 
 
 class FireCircleBlock(FireCircle):
@@ -1124,16 +1149,18 @@ class FireCircleBlock(FireCircle):
 class Spring(Entity):
     pass
 
+
 class PiranhaPlant(Entity):
     def draw(self) -> None:
         tx, ty = PIRANHA_PLANT
-        u = (tx+(1 if (pyxel.frame_count//9%3) else 2)) * TILE_SIZE
+        u = (tx + (1 if (pyxel.frame_count // 9 % 3) else 2)) * TILE_SIZE
         v = ty * TILE_SIZE
         pyxel.blt(self.sx, self.sy, 0, u, v, self.w, self.h, DEFAULT_TRANSPARENT_COLOR)
 
     def on_collision(self, other):
-       if isinstance(other, Player):
-           other.die()
+        if isinstance(other, Player):
+            other.die()
+
 
 class PiranhaPlantTurret(PiranhaPlant):
     def __init__(self, x: float, y: float, w: float, h: float) -> None:
@@ -1145,13 +1172,12 @@ class PiranhaPlantTurret(PiranhaPlant):
             print("Warning: PiranhaPlantTurret has no player reference")
             return
         # TODO: Finish this
-        #if pyxel.frame_count % 120 == 0:
+        # if pyxel.frame_count % 120 == 0:
         #    px, py = self.player.x, self.player.y
+
 
 class Bullet(MovableEntity):
     pass
-
-
 
 
 class Spikes(Entity):
@@ -1160,9 +1186,6 @@ class Spikes(Entity):
 
 class Slime(Entity):
     pass
-
-
-
 
 
 class MovingPlatform(MovableEntity):
@@ -1260,10 +1283,10 @@ class FallingPlatform(Entity):
     def on_hit_above_by_player(self, player: Player) -> None:
         player.state_key = PlayerStateKey.GROUND
         player.y = self.y - player.h
-        player.dy = 1 # Dip slightly
+        player.dy = 1  # Dip slightly
         self.ticks_remaining -= 1
         if self.ticks_remaining <= 0:
-            self.die() # Fixme: Transition state instead
+            self.die()  # Fixme: Transition state instead
 
     def die(self) -> None:
         FALL_PLAT_VIS = (FALL_PLAT1[0] + 1, FALL_PLAT1[1])
@@ -1394,16 +1417,16 @@ class App:
         # Draw level
         pyxel.camera()
         # Draw background
-        u,vb = 0, 24 * TILE_SIZE
-        wb, hb = 16*TILE_SIZE, 19*TILE_SIZE
+        u, vb = 0, 24 * TILE_SIZE
+        wb, hb = 16 * TILE_SIZE, 19 * TILE_SIZE
 
         vf = vb + 19 * TILE_SIZE
-        wf, hf = 16*TILE_SIZE, 11*TILE_SIZE
+        wf, hf = 16 * TILE_SIZE, 11 * TILE_SIZE
         for xoff in range(-1, 2):
             for yoff in range(0, 1):
                 # Far background
                 pyxel.bltm(
-                    (-self.camera.x // 3) % wb + xoff*wb,
+                    (-self.camera.x // 3) % wb + xoff * wb,
                     yoff * hb,
                     0,
                     u,
@@ -1414,7 +1437,7 @@ class App:
                 )
                 # Near background
                 pyxel.bltm(
-                    (-self.camera.x //2 ) % wf + xoff*wf,
+                    (-self.camera.x // 2) % wf + xoff * wf,
                     hb + yoff * hf,
                     0,
                     u,
@@ -1423,7 +1446,6 @@ class App:
                     hf,
                     0,
                 )
-
 
         # Draw foreground tiles in screen space
         # Note our camera offset is our uv offset
@@ -1560,7 +1582,6 @@ class App:
                     )
                 elif tile == SPRING:
                     pass
-           
 
     def draw_hud(self) -> None:
         pyxel.text(TILE_SIZE, TILE_SIZE * 2, f"SCORE: {self.manager.score}", 7)
@@ -1575,5 +1596,6 @@ class App:
             TILE_SIZE,
             DEFAULT_TRANSPARENT_COLOR,
         )
+
 
 App()
