@@ -858,7 +858,7 @@ class PlayerClimbState(State):
             v,
             w,
             parent.h,
-            parent.transparent_color,
+            DEFAULT_TRANSPARENT_COLOR,
         )
 
 
@@ -915,7 +915,6 @@ class Player(MovableEntity, StateMachine):
         if self.y > SCROLL_BORDER_Y - self.h:
             self.y = SCROLL_BORDER_Y - self.h - 1
             self.state_key = PlayerStateKey.DEAD
-            # parent.is_grounded = True # TODO: Remove
             self.die()
         if self.x < 0:
             self.x = 0
