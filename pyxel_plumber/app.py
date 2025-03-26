@@ -1,5 +1,6 @@
 import pyxel
 import random
+import math
 from typing import Callable
 from collections.abc import Hashable
 from enum import Enum
@@ -26,6 +27,7 @@ HERO = (0, 1)
 DEAD_HERO = (3, 1)
 CLIMB_HERO = (2, 0)
 COIN = (0, 3)
+STAR = ()
 SHROOM = (0, 2)
 DEAD_SHROOM = (2, 2)
 PIRANHA_PLANT = (0, 4)
@@ -44,10 +46,23 @@ SOLID_BRICK = (5, 0)
 SOLID_CERA = (5, 1)
 SOLID_BLOCK = (4, 7)
 SOLID_GRAY = (5, 7)
+SOLID_PIPE_UPPER_LEFT = (4,8)
+SOLID_PIPE_UPPER_RIGHT = (5,8)
+SOLID_PIPE_LOWER_LEFT = (4,9)
+SOLID_PIPE_LOWER_RIGHT = (5,9)
 
 MOVING_PLAT1 = (0, 10)
 MOVING_PLAT2 = (1, 10)
 FALL_PLAT1 = (0, 11)
+FIREBALL = (2,11)
+FIREBALL_IMG = (3,11)
+FIRE_CIRCLE = (0,12)
+FIRE_CIRCLE_BLOCK = (2,12)
+FIRE_CIRCLE_SPRITE = (1,12)
+
+BULLET_BILLY_IMG = (0,6)
+BULLET_BILLY_GUN_IMG = (2,6)
+CANNONBALL_IMG = (3,6)
 
 marker_tiles = {
     HERO,
@@ -61,6 +76,9 @@ marker_tiles = {
     MOVING_PLAT1,
     MOVING_PLAT2,
     FALL_PLAT1,
+    FIREBALL,
+    FIRE_CIRCLE,
+    #FIRE_CIRCLE_BLOCK, # Don't hide this
 }
 solid_tiles = {
     SOLID_GRASS,
@@ -69,6 +87,10 @@ solid_tiles = {
     SOLID_CERA,
     SOLID_BLOCK,
     SOLID_GRAY,
+    SOLID_PIPE_UPPER_LEFT,
+    SOLID_PIPE_UPPER_RIGHT,
+    SOLID_PIPE_LOWER_LEFT,
+    SOLID_PIPE_LOWER_RIGHT,
 }
 
 
@@ -847,7 +869,6 @@ class Player(MovableEntity, StateMachine):
         y: int,
         w: int = 6,
         h: int = TILE_SIZE,
-        marker_tile: tuple[int, int] = HERO,
         speed: int = 1.6,
         jump: int = 4,
         momentum: float = 0.8,
@@ -1026,15 +1047,112 @@ class Turtle(ShroomHead):
 
 
 class FireBall(MovableEntity):
+    def __init__(self, x: float, y: float, w: float, h: float, speed_per_tick: float = 1, ceiling: int = 100) -> None:
+        super().__init__(x, y, w, h)
+        self.speed_per_tick = speed_per_tick
+        self.dy = -speed_per_tick
+        self.ceiling = ceiling
+        self.start_y = y
+
+    def draw(self) -> None:
+        tx, ty = FIREBALL_IMG
+        u = tx * TILE_SIZE
+        v = ty * TILE_SIZE
+        w = self.w if (pyxel.frame_count//9)&1 else -self.w
+        h = self.h if self.dy < 0 else -self.h
+        pyxel.blt(self.sx, self.sy, 0, u, v, w, h, DEFAULT_TRANSPARENT_COLOR)
+
+    def update(self) -> None:
+        # Reverse motion if hitting ceiling or floor
+        if self.y < self.start_y - self.ceiling or self.y > self.start_y:
+            self.dy = -self.dy
+        self.y += self.dy
+
+    def on_collision(self, other):
+        if isinstance(other, Player):
+            other.die()
+
+
+class SpinnyFireball(MovableEntity):
+    def update(self) -> None:
+        """Update controlled by FireCircle"""
+        super().update()
+        pass
+
+    def draw(self) -> None:
+        u, v = FIRE_CIRCLE_SPRITE
+        u *= TILE_SIZE
+        v *= TILE_SIZE
+        fc = pyxel.frame_count
+        w = self.w if fc//9 & 1 else -self.w
+        h = self.h if fc//2 & 1 else -self.h
+        pyxel.blt(self.sx, self.sy, 0, u, v, w, h, DEFAULT_TRANSPARENT_COLOR)
+
+    def on_collision(self, other: "Entity") -> None:
+        if isinstance(other, Player):
+            other.die()
+
+
+class FireCircle(Entity):
+    def __init__(self, x: float, y: float, w: int, h: int, rotation_speed: float = -.05, num_fireballs: int = 5) -> None:
+        super().__init__(x, y, w, h)
+        self.rotation_speed = rotation_speed
+        self.fireballs = [
+            SpinnyFireball(x+TILE_SIZE*i, y, TILE_SIZE, TILE_SIZE)
+            for i in range(num_fireballs)
+        ]
+        self.manager.enemies.extend(self.fireballs)
+    
+    def update(self):
+        fc: int = pyxel.frame_count
+        for i,fireball in enumerate(self.fireballs):
+            fireball.x = self.x + TILE_SIZE*i * math.cos(fc * self.rotation_speed)
+            fireball.y = self.y + TILE_SIZE*i * math.sin(fc * self.rotation_speed)
+            fireball.update()
+
+    def draw(self):
+        for fireball in self.fireballs:
+            fireball.draw()
+
+
+
+class FireCircleBlock(FireCircle):
+    def on_collision(self, other):
+        if isinstance(other, Player):
+            pushback_entity(self, other)
+
+
+class Spring(Entity):
     pass
 
+class PiranhaPlant(Entity):
+    def draw(self) -> None:
+        tx, ty = PIRANHA_PLANT
+        u = (tx+(1 if (pyxel.frame_count//9%3) else 2)) * TILE_SIZE
+        v = ty * TILE_SIZE
+        pyxel.blt(self.sx, self.sy, 0, u, v, self.w, self.h, DEFAULT_TRANSPARENT_COLOR)
+
+    def on_collision(self, other):
+       if isinstance(other, Player):
+           other.die()
+
+class PiranhaPlantTurret(PiranhaPlant):
+    def __init__(self, x: float, y: float, w: float, h: float) -> None:
+        super().__init__(x, y, w, h)
+        self.player = self.manager.player
+
+    def update(self) -> None:
+        if self.player is None:
+            print("Warning: PiranhaPlantTurret has no player reference")
+            return
+        # TODO: Finish this
+        #if pyxel.frame_count % 120 == 0:
+        #    px, py = self.player.x, self.player.y
 
 class Bullet(MovableEntity):
     pass
 
 
-class PiranhaPlant(Entity):
-    pass
 
 
 class Spikes(Entity):
@@ -1045,8 +1163,7 @@ class Slime(Entity):
     pass
 
 
-class Spring(Entity):
-    pass
+
 
 
 class MovingPlatform(MovableEntity):
@@ -1377,7 +1494,14 @@ class App:
                         ),
                     )
                 elif tile == PIRANHA_PLANT:
-                    pass
+                    self.enemies.append(
+                        PiranhaPlant(
+                            x * TILE_SIZE,
+                            y * TILE_SIZE,
+                            TILE_SIZE,
+                            TILE_SIZE,
+                        )
+                    )
                 elif tile == SPIKES:
                     pass
                 elif tile == SPRING:
@@ -1407,6 +1531,37 @@ class App:
                             fall_delay_ticks=30,
                         )
                     )
+                elif tile == FIREBALL:
+                    self.enemies.append(
+                        FireBall(
+                            x * TILE_SIZE,
+                            y * TILE_SIZE,
+                            TILE_SIZE,
+                            TILE_SIZE,
+                        )
+                    )
+                elif tile == FIRE_CIRCLE:
+                    self.doodads.append(
+                        FireCircle(
+                            x * TILE_SIZE,
+                            y * TILE_SIZE,
+                            TILE_SIZE,
+                            TILE_SIZE,
+                        )
+                    )
+
+                elif tile == FIRE_CIRCLE_BLOCK:
+                    self.doodads.append(
+                        FireCircleBlock(
+                            x * TILE_SIZE,
+                            y * TILE_SIZE,
+                            TILE_SIZE,
+                            TILE_SIZE,
+                        )
+                    )
+                elif tile == SPRING:
+                    pass
+           
 
     def draw_hud(self) -> None:
         pyxel.text(TILE_SIZE, TILE_SIZE * 2, f"SCORE: {self.manager.score}", 7)
