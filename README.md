@@ -3,7 +3,7 @@
 Side-scrolling platformer based on a certain mustached plumber who will not be mentioned due to copyright reasons
 
 
-## [PLAY HERE](https://kitao.github.io/pyxel/wasm/launcher/?run=LarsDu.PyxelPlumber.pyxel_plumber.app)
+## [PLAY HERE](https://kitao.github.io/pyxel/wasm/launcher/?run=LarsDu.PyxelPlumber.pyxel_plumber.app&gamepad=enabled)
 
 ## Environment setup
 

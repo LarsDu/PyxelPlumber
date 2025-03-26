@@ -669,6 +669,7 @@ class PlayerGroundState(State):
             or pyxel.btn(pyxel.KEY_SPACE)
             or pyxel.btn(pyxel.GAMEPAD1_BUTTON_A)
             or pyxel.btn(pyxel.GAMEPAD1_BUTTON_DPAD_UP)
+            or pyxel.btn(pyxel.GAMEPAD1_BUTTON_B)
         ):
             parent.dy = -parent.jump
             parent.state_key = PlayerStateKey.AIR
