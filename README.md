@@ -35,7 +35,7 @@ pyxel run pyxel_plumber/app.py
 Edit graphics, tilemaps, and sound
 
 ```
-pyxel edit pyxel_plumber/assets/
+pyxel edit pyxel_plumber/assets/pyxel_plumber.pyxres
 ```
 
 ### Development environment setup for contributors
