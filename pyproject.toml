@@ -1,0 +1,21 @@
+[project]
+name = "pyxel-plumber"
+version = "0.1.0"
+description = "8-bit Sidescrolling platformer made from scratch"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pyxel>=2.3.17"
+]
+
+dev-dependencies = [
+    "ruff>=0.6.4",
+    "isort>=5.13.2",
+    "pre-commit>=3.8.0",
+]
+
+[tool.nbqa]
+tools = ["black"]
+
+[tool.isort]
+profile = "black"
