@@ -360,18 +360,30 @@ class MovableEntity(Entity):
         y: int,
         w: int,
         h: int,
-        marker_tile: tuple[int, int],
-        transparent_color: int = DEFAULT_TRANSPARENT_COLOR,
     ) -> None:
         super().__init__(x, y, w, h)
         self.dx = 0
         self.dy = 0
         self.is_facing_right = True
+
+
+
+class DefaultMovableEntity(MovableEntity):
+    def __init__(
+        self,
+        x: int,
+        y: int,
+        w: int,
+        h: int,
+        marker_tile: tuple[int, int],
+        transparent_color: int = DEFAULT_TRANSPARENT_COLOR,
+    ) -> None:
+        super().__init__(x, y, w, h)
+        self.is_facing_right = True
         self.marker_tile = marker_tile
         self.transparent_color = transparent_color
 
 
-class DefaultMovableEntity(MovableEntity):
     def draw(self) -> None:
         tx, ty = self.marker_tile
         if abs(self.dx) > 0:
@@ -392,51 +404,7 @@ class DefaultMovableEntity(MovableEntity):
         )
 
 
-class State:
-    def set_parent(self, parent: Entity) -> None:  # FIXME: Entity or Player
-        self.parent = parent
 
-    def on_enter(self) -> None:
-        if not hasattr(self, "parent"):
-            raise AttributeError("State must have a parent")
-
-    def on_exit(self) -> None:
-        if not hasattr(self, "parent"):
-            raise AttributeError("State must have a parent")
-
-    def update(self) -> None:
-        if not hasattr(self, "parent"):
-            raise AttributeError("State must have a parent")
-
-    def draw(self) -> None:
-        if not hasattr(self, "parent"):
-            raise AttributeError("State must have a parent")
-
-
-class StateMachine:
-    def init_state_machine(
-        self, state_map: dict[Hashable, State], starting_state_key: Hashable
-    ) -> None:
-        self.state_map = state_map
-        self._state_key = starting_state_key
-        self.state = self.state_map[self._state_key]
-        for state in self.state_map.values():
-            state.set_parent(self)
-
-    @property
-    def state_key(self) -> Hashable:
-        raise AttributeError("State key is read-only")
-
-    @state_key.setter
-    def state_key(self, new_state_key: Hashable) -> None:
-        if new_state_key not in self.state_map:
-            raise ValueError(f"State key {new_state_key} not found in state map")
-        if self._state_key == new_state_key:
-            return
-        self.state.on_exit()
-        self._state_key = new_state_key
-        self.state = self.state_map[self._state_key]
-        self.state.on_enter()
 
 
 class Coin(Entity):
@@ -532,7 +500,7 @@ class BreakBlock(Entity):
             )
 
 
-class DeathSprite(MovableEntity):
+class DeathSprite(DefaultMovableEntity):
     def __init__(
         self,
         x: float,
@@ -587,6 +555,54 @@ class CollidableDeathSprite(DeathSprite):
         if self.dy > 0:
             player.die()
 
+class State:
+    def __init__(self) -> None:
+        self.parent: Entity | Player | None
+
+    def set_parent(self, parent: Entity) -> None:  # FIXME: Entity or Player
+        self.parent = parent
+
+    def on_enter(self) -> None:
+        if not hasattr(self, "parent"):
+            raise AttributeError("State must have a parent")
+
+    def on_exit(self) -> None:
+        if not hasattr(self, "parent"):
+            raise AttributeError("State must have a parent")
+
+    def update(self) -> None:
+        if not hasattr(self, "parent"):
+            raise AttributeError("State must have a parent")
+
+    def draw(self) -> None:
+        if not hasattr(self, "parent"):
+            raise AttributeError("State must have a parent")
+
+
+class StateMachine:
+    def init_state_machine(
+        self, state_map: dict[Hashable, State], starting_state_key: Hashable
+    ) -> None:
+        self.state_map = state_map
+        self._state_key = starting_state_key
+        self.state = self.state_map[self._state_key]
+        for state in self.state_map.values():
+            state.set_parent(self)
+
+    @property
+    def state_key(self) -> Hashable:
+        raise AttributeError("State key is read-only")
+
+    @state_key.setter
+    def state_key(self, new_state_key: Hashable) -> None:
+        if new_state_key not in self.state_map:
+            raise ValueError(f"State key {new_state_key} not found in state map")
+        if self._state_key == new_state_key:
+            return
+        self.state.on_exit()
+        self._state_key = new_state_key
+        self.state = self.state_map[self._state_key]
+        self.state.on_enter()
 class PlayerStateKey(Enum):
     GROUND = 0
     AIR = 1
@@ -651,7 +667,7 @@ class PlayerGroundState(State):
 
     def draw(self) -> None:
         parent = self.parent
-        tx, ty = parent.marker_tile
+        tx, ty = HERO[0]+1, HERO[1]
         if abs(parent.dx) > 0:
             u = TILE_SIZE * (tx + 1) + TILE_SIZE * (pyxel.frame_count // 4 % 2)
         else:
@@ -666,7 +682,7 @@ class PlayerGroundState(State):
             v,
             w,
             parent.h,
-            parent.transparent_color,
+            DEFAULT_TRANSPARENT_COLOR,
         )
 
 
@@ -721,7 +737,7 @@ class PlayerAirState(State):
 
     def draw(self) -> None:
         parent = self.parent
-        tx, ty = parent.marker_tile
+        tx, ty = HERO[0]+1, HERO[1]
         if abs(parent.dx) > 0:
             u = TILE_SIZE * (tx + 1) + TILE_SIZE * (pyxel.frame_count // 4 % 2)
         else:
@@ -735,7 +751,7 @@ class PlayerAirState(State):
             v,
             parent.w if parent.is_facing_right else -parent.w,
             parent.h,
-            parent.transparent_color,
+            DEFAULT_TRANSPARENT_COLOR,
         )
 
 
@@ -842,8 +858,6 @@ class Player(MovableEntity, StateMachine):
             y,
             w,
             h,
-            marker_tile=marker_tile,
-            transparent_color=DEFAULT_TRANSPARENT_COLOR,
         )
         self.dx = 0
         self.dy = 0
@@ -1042,10 +1056,8 @@ class MovingPlatform(MovableEntity):
         y,
         w=TILE_SIZE * 2,
         h=TILE_SIZE,
-        marker_tile=MOVING_PLAT1,  # Not really used
-        transparent_color=DEFAULT_TRANSPARENT_COLOR,
     ):
-        super().__init__(x, y, w, h, marker_tile, transparent_color)
+        super().__init__(x, y, w, h)
         self.dx = 0.25
         self.distance = 5 * TILE_SIZE
         self.cur_distance = self.distance
@@ -1083,7 +1095,7 @@ class MovingPlatform(MovableEntity):
         tx, ty = MOVING_PLAT1
         u = (tx + 2) * TILE_SIZE
         v = ty * TILE_SIZE
-        pyxel.blt(self.sx, self.sy, 0, u, v, self.w, self.h, self.transparent_color)
+        pyxel.blt(self.sx, self.sy, 0, u, v, self.w, self.h, DEFAULT_TRANSPARENT_COLOR)
 
 
 class FallingPlatform(Entity):
@@ -1267,9 +1279,9 @@ class App:
         pyxel.camera()
         # Draw background
         u,vb = 0, 24 * TILE_SIZE
-        wb, hb = 16*TILE_SIZE, 21*TILE_SIZE
+        wb, hb = 16*TILE_SIZE, 19*TILE_SIZE
 
-        vf = vb + 21 * TILE_SIZE
+        vf = vb + 19 * TILE_SIZE
         wf, hf = 16*TILE_SIZE, 11*TILE_SIZE
         for xoff in range(-1, 2):
             for yoff in range(0, 1):
@@ -1403,10 +1415,10 @@ class App:
             TILE_SIZE * 1.5,
             TILE_SIZE - 2,
             0,
-            (COIN[0] + 1) * 8,
-            (COIN[1]) * 8,
-            8,
-            8,
+            (COIN[0] + 1) * TILE_SIZE,
+            (COIN[1]) * TILE_SIZE,
+            TILE_SIZE,
+            TILE_SIZE,
             DEFAULT_TRANSPARENT_COLOR,
         )
 
