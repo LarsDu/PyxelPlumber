@@ -23,7 +23,11 @@ uv sync
 
 # Gameplay
 
+Play the game
 
+```
+pyxel run pyxel_plumber/app.py
+```
 
 
 ## Developer notes
@@ -34,8 +38,11 @@ Edit graphics, tilemaps, and sound
 pyxel edit pyxel_plumber/assets/
 ```
 
-### Development environment setup
+### Development environment setup for contributors
+
 Run the following to get pre-commit hooks for automating code linting.
 ```
 pre-commit install
 ```
+
+Feel free to fork, or open PRs to this project at will!
